@@ -17,6 +17,7 @@ use System\Classes\MediaLibraryItem;
 use October\Rain\Database\Attach\Resizer;
 use October\Rain\Filesystem\Definitions as FileDefinitions;
 use Form as FormHelper;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Media Manager widget.
@@ -321,19 +322,25 @@ class MediaManager extends WidgetBase
             /*
              * Validate extension
              */
-            if (!$this->validateFileType($newName)) {
+           /* if (!$this->validateFileType($newName)) {
                 throw new ApplicationException(Lang::get('backend::lang.media.type_blocked'));
-            }
+            }*/
 
             /*
              * Move single file
              */
-            MediaLibrary::instance()->moveFile($originalPath, $newPath);
+           // MediaLibrary::instance()->moveFile($originalPath, $newPath);
 
             /*
              * Extensibility
              */
             $this->fireSystemEvent('media.file.rename', [$originalPath, $newPath]);
+
+            echo $originalPath = ltrim($originalPath, '/');
+            $newPath = ltrim($newPath, '/');
+            echo $newName;
+            $files = DB::table('urbanway_uwmedia')->where('path', $originalPath)->update(['title'=> $newName]);
+
         }
         else {
             /*
@@ -1096,6 +1103,8 @@ class MediaManager extends WidgetBase
             $uploadedFile = Input::file('file_data');
 
             $fileName = $uploadedFile->getClientOriginalName();
+            $fileName = str_replace(' ', '_', $fileName);
+
 
             /*
              * Convert uppcare case file extensions to lower case
@@ -1125,9 +1134,25 @@ class MediaManager extends WidgetBase
                 throw new ApplicationException($uploadedFile->getErrorMessage());
             }
 
-            $path = $quickMode ? '/uploaded-files' : Input::get('path');
+           // $path = $quickMode ? '/uploaded-files' : Input::get('path');
+
+            $path = date("Y").'/'.date("m").'/'.date("d").'/';
+ 
+ 
+            if(!is_dir($path)){
+                //Create our directory.
+                mkdir($path, 755, true);
+            }
             $path = MediaLibrary::validatePath($path);
+            print_r($path);
             $filePath = $path.'/'.$fileName;
+
+            if(MediaLibrary::instance()->exists($filePath)){
+                    $fileName = File::name($uploadedFile->getClientOriginalName()) . '-' . time() . '.' . $extension;
+                    $filePath = $path . '/' . $fileName;
+                $fileName = str_replace(' ', '_', $fileName);
+
+            }
 
             /*
              * getRealPath() can be empty for some environments (IIS)
@@ -1145,6 +1170,14 @@ class MediaManager extends WidgetBase
              * Extensibility
              */
             $this->fireSystemEvent('media.file.upload', [$filePath, $uploadedFile]);
+             $filePath = ltrim($filePath, '/');
+
+
+            $info = pathinfo($filePath);
+
+            $file_name =  basename($filePath,'.'.$info['extension']);
+            $now =date('Y-m-d H:i:s');
+            $files = DB::table('urbanway_uwmedia')->insert(['path'=> $filePath, 'title'=>$file_name,'created_at' => $now]);
 
             Response::json([
                 'link' => MediaLibrary::url($filePath),

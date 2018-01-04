@@ -36,7 +36,6 @@ $app = require_once __DIR__.'/bootstrap/app.php';
 | Execute the request and send the response back to the client.
 |
 */
-
 $kernel = $app->make('Illuminate\Contracts\Http\Kernel');
 
 $response = $kernel->handle(

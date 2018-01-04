@@ -9,6 +9,7 @@ use Request;
 use October\Rain\Filesystem\Definitions as FileDefinitions;
 use ApplicationException;
 use SystemException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Provides abstraction level for the Media Library operations.
@@ -90,15 +91,27 @@ class MediaLibrary
      * @param boolean $ignoreFolders Determines whether folders should be suppressed in the result list.
      * @return array Returns an array of MediaLibraryItem objects.
      */
-    public function listFolderContents($folder = '/', $sortBy = 'title', $filter = null, $ignoreFolders = false)
+    public function listFolderContents($folder = '/', $sortBy = 'lastModified', $filter = null, $ignoreFolders = false)
     {
-        $folder = self::validatePath($folder);
+
+        $result = [];
+      
+        $files = DB::table('urbanway_uwmedia')->take(50)->orderBy('id','desc')->get();
+
+         foreach ($files as $key => $file) {
+          if(is_file(getcwd().'/storage/app/media/'.$file->path))
+          $result[] = new MediaLibraryItem($file->path, filesize(getcwd().'/storage/app/media/'.$file->path), filemtime(getcwd().'/storage/app/media/'.$file->path), MediaLibraryItem::TYPE_FILE,'/storage/app/media/'.$file->path);
+         }
+
+        /*if ($sortBy !== false) {
+            $this->sortItemList($result, $sortBy);
+        } */
+        
+        return $result;
+       /* $folder = self::validatePath($folder);
         $fullFolderPath = $this->getMediaPath($folder);
 
-        /*
-         * Try to load the contents from cache
-         */
-
+        
         $cached = Cache::get(self::CACHE_KEY, false);
         $cached = $cached ? @unserialize(@base64_decode($cached)) : [];
 
@@ -119,10 +132,7 @@ class MediaLibrary
                 Config::get('cms.storage.media.ttl', 10)
             );
         }
-
-        /*
-         * Sort the result and combine the file and folder lists
-         */
+ 
 
         if ($sortBy !== false) {
             $this->sortItemList($folderContents['files'], $sortBy);
@@ -138,7 +148,7 @@ class MediaLibrary
             $folderContents = $folderContents['files'];
         }
 
-        return $folderContents;
+        return $folderContents;*/
     }
 
     /**
@@ -150,34 +160,26 @@ class MediaLibrary
      * Supported values are 'image', 'video', 'audio', 'document' (see FILE_TYPE_XXX constants of MediaLibraryItem class).
      * @return array Returns an array of MediaLibraryItem objects.
      */
-    public function findFiles($searchTerm, $sortBy = 'title', $filter = null)
+  public function findFiles($searchTerm, $sortBy = 'title', $filter = null)
     {
         $words = explode(' ', Str::lower($searchTerm));
         $result = [];
-
-        $findInFolder = function ($folder) use (&$findInFolder, $words, &$result, $sortBy, $filter) {
-            $folderContents = $this->listFolderContents($folder, $sortBy, $filter);
-
-            foreach ($folderContents as $item) {
-                if ($item->type == MediaLibraryItem::TYPE_FOLDER) {
-                    $findInFolder($item->path);
+        $search = '';
+        $files = DB::table('urbanway_uwmedia')->where(function ($query) use ($words) {
+                foreach ($words as $keyword) {
+                   $query->where('path', 'LIKE', '%'.$keyword.'%');
                 }
-                elseif ($this->pathMatchesSearch($item->path, $words)) {
-                    $result[] = $item;
-                }
-            }
-        };
+            })->orderBy('id','desc')->get();
 
-        $findInFolder('/');
-
-        /*
-         * Sort the result
-         */
+          foreach ($files as $key => $file) {
+          if(is_file(getcwd().'/storage/app/media/'.$file->path))
+          $result[] = new MediaLibraryItem($file->path, filesize(getcwd().'/storage/app/media/'.$file->path), filemtime(getcwd().'/storage/app/media/'.$file->path), MediaLibraryItem::TYPE_FILE,'/storage/app/media/'.$file->path);
+         }
 
         if ($sortBy !== false) {
             $this->sortItemList($result, $sortBy);
-        }
-
+        } 
+       
         return $result;
     }
 

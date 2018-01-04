@@ -267,6 +267,11 @@ return [
             'folder' => 'media',
             'path'   => '/storage/app/media',
         ],
+        'thumbs' => [
+            'disk'   => 'local',
+            'folder' => 'thumbs',
+            'path'   => '/storage/app/thumbs',
+        ],
 
     ],
 
